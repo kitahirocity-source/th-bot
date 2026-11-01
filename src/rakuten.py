@@ -3,13 +3,14 @@ import os, random, time
 import requests
 from config import RAKUTEN_AFFILIATE_ID, MIN_REVIEWS, MIN_RATING
 
+REFERER = (os.getenv("RAKUTEN_REFERER") or "").strip() or "https://www.threads.com/@rakuten.aff"
 ENDPOINT = "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20220601"
 
 
 def search(keyword: str, exclude_codes: set) -> dict | None:
     time.sleep(1.2)  # 楽天APIは1秒に1回まで
     r = requests.get(ENDPOINT, timeout=30,
-                     headers={"Referer": os.getenv("RAKUTEN_REFERER", "")},
+                     headers={"Referer": REFERER, "Origin": "https://www.threads.com"},
                      params={"applicationId": os.getenv("RAKUTEN_APP_ID"),
                              "accessKey": os.getenv("RAKUTEN_ACCESS_KEY"),
                              "affiliateId": RAKUTEN_AFFILIATE_ID, "keyword": keyword,

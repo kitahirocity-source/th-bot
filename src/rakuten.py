@@ -1,5 +1,5 @@
 """楽天市場の商品検索（2026年の新仕様: accessKey と Referer が必須）"""
-import os, random
+import os, random, time
 import requests
 from config import RAKUTEN_AFFILIATE_ID, MIN_REVIEWS, MIN_RATING
 
@@ -7,6 +7,7 @@ ENDPOINT = "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/2022060
 
 
 def search(keyword: str, exclude_codes: set) -> dict | None:
+    time.sleep(1.2)  # 楽天APIは1秒に1回まで
     r = requests.get(ENDPOINT, timeout=30,
                      headers={"Referer": os.getenv("RAKUTEN_REFERER", "")},
                      params={"applicationId": os.getenv("RAKUTEN_APP_ID"),

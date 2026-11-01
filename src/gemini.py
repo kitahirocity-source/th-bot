@@ -59,7 +59,7 @@ def ask_json(prompt: str) -> dict:
                 text = r.json()["candidates"][0]["content"]["parts"][0]["text"]
                 text = re.sub(r"^```(json)?|```$", "", text.strip(), flags=re.M).strip()
                 return json.loads(text)
-            except (KeyError, IndexError, json.JSONDecodeError) as e:
+            except (KeyError, IndexError, json.JSONDecodeError, requests.exceptions.RequestException) as e:
                 last = f"{model}: 返事の形が変 ({e})"
                 continue
     raise RuntimeError(f"Geminiで文章を作れませんでした（{last}）")

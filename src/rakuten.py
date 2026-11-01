@@ -4,7 +4,7 @@ import requests
 from config import RAKUTEN_AFFILIATE_ID, MIN_REVIEWS, MIN_RATING
 
 REFERER = (os.getenv("RAKUTEN_REFERER") or "").strip() or "https://www.threads.com/@rakuten.aff"
-ENDPOINT = "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20220601"
+ENDPOINT = "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701"
 
 
 def search(keyword: str, exclude_codes: set) -> dict | None:

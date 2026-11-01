@@ -1,0 +1,80 @@
+name: Threads楽天bot
+
+on:
+  schedule:
+    # UTC表記。日本時間 7,9,11,13,15,17,19,21,23時（1日9回）
+    - cron: "5 22,0,2,4,6,8,10,12,14 * * *"
+    # 毎週月曜 日本時間12時: Threadsのトークンを延長（60日で切れるため）
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "テスト実行（投稿はしない）"
+        type: boolean
+        default: true
+      mode:
+        description: "投稿の種類"
+        type: choice
+        options: [auto, product, talk]
+        default: product
+
+permissions:
+  contents: write
+
+concurrency:
+  group: threads-bot
+  cancel-in-progress: false
+
+jobs:
+  post:
+    if: github.event.schedule != '17 3 * * 1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -q -r requirements.txt
+
+      - name: botを動かす
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+          RAKUTEN_APP_ID: ${{ secrets.RAKUTEN_APP_ID }}
+          RAKUTEN_ACCESS_KEY: ${{ secrets.RAKUTEN_ACCESS_KEY }}
+          RAKUTEN_REFERER: ${{ vars.RAKUTEN_REFERER }}
+          PERSONA: ${{ vars.PERSONA }}
+          PRODUCT_RATIO: ${{ vars.PRODUCT_RATIO }}
+          QUIET_HOURS: ${{ vars.QUIET_HOURS }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+          FORCE: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
+          MODE: ${{ inputs.mode != 'auto' && inputs.mode || '' }}
+        run: python src/main.py
+
+      - name: 投稿履歴とレポートを保存
+        if: always() && !inputs.dry_run
+        run: |
+          git config user.name  "threads-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add data/
+          git diff --cached --quiet || git commit -m "履歴を更新 $(TZ=Asia/Tokyo date '+%m/%d %H:%M')"
+          git pull --rebase -q && git push -q
+
+  refresh-token:
+    if: github.event.schedule == '17 3 * * 1'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Threadsのトークンを60日延長してSecretsを更新
+        env:
+          OLD: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "GH_PAT が未設定のため自動延長はスキップ（READMEの手順で手動延長してください）"; exit 0; fi
+          NEW=$(curl -s "https://graph.threads.net/refresh_access_token?grant_type=th_refresh_token&access_token=$OLD" | python3 -c "import sys,json;print(json.load(sys.stdin).get('access_token',''))")
+          if [ -z "$NEW" ]; then echo "延長に失敗しました。トークンを作り直してください"; exit 1; fi
+          echo "::add-mask::$NEW"
+          gh secret set THREADS_ACCESS_TOKEN --body "$NEW" --repo "$GITHUB_REPOSITORY"
+          echo "トークンを延長しました"
